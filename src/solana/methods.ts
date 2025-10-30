@@ -69,11 +69,15 @@ export default class SolanaMethods {
         const keys: string[] = (msg.accountKeys ?? msg.staticAccountKeys).map((k: any) =>
           (k.pubkey ? k.pubkey : k).toBase58()
         );
+
         const i = keys.indexOf(owner);
         if (i < 0) throw new Error("Owner not in account keys");
+
         const pre = meta.preBalances?.[i] ?? 0;
         const post = meta.postBalances?.[i] ?? 0;
-        return (post - pre).toString();
+
+        const delta = post - pre;
+        return delta > 0 ? delta.toString() : null;
       }
 
       // --- SPL token branch ---
