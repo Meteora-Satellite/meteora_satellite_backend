@@ -146,61 +146,68 @@ export default class SolanaMethods {
   }
 
   static async swapToken(input: SwapTokenInput): Promise<SwapTokenResult> {
-    const { vtx, order } = await this.generateSwapTx(input);
-    vtx.sign([input.signer]);
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        const {vtx, order} = await this.generateSwapTx(input);
+        vtx.sign([input.signer]);
 
-    const signedB64 = Buffer.from(vtx.serialize()).toString("base64");
+        const signedB64 = Buffer.from(vtx.serialize()).toString("base64");
 
-    // 4) POST /ultra/v1/execute
-    const execRes = await fetch("https://api.jup.ag/ultra/v1/execute", {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': env.JUPITER_API_KEY
-      },
-      body: JSON.stringify({
-        signedTransaction: signedB64,
-        requestId: order.requestId,
-      }),
-    });
+        // 4) POST /ultra/v1/execute
+        const execRes = await fetch("https://api.jup.ag/ultra/v1/execute", {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': env.JUPITER_API_KEY
+          },
+          body: JSON.stringify({
+            signedTransaction: signedB64,
+            requestId: order.requestId,
+          }),
+        });
 
-    if (!execRes.ok) {
-      const text = await execRes.text();
-      throw new Error(`Ultra execute failed: ${execRes.status} ${text}`);
+        if (!execRes.ok) {
+          const text = await execRes.text();
+          throw new Error(`Ultra execute failed: ${execRes.status} ${text}`);
+        }
+
+        const exec = await execRes.json() as {
+          status: "Success" | "Failed";
+          signature?: string;
+          error?: string;
+          code?: number;
+        };
+
+        if (exec.status !== "Success" || !exec.signature) {
+          throw new Error(`Ultra execute error: ${exec.error || exec.code || "unknown"}`);
+        }
+
+        // we need to do this, coz Jupiter return wrong "outAmount", coz slippage
+        const realOutAmount = await this.getTokenSwapRealAmount(
+          exec.signature,
+          input.signer.publicKey.toString(),
+          input.outputMint
+        );
+
+        console.log('✅Token swap success:', {
+          signature: exec.signature,
+          inputMint: input.inputMint,
+          outputMint: input.outputMint,
+          inAmount: order.inAmount,
+          outAmount: order.outAmount,
+          realOutAmount: realOutAmount ?? order.outAmount,
+          priceImpact: order.priceImpact,
+        });
+
+        return {
+          signature: exec.signature,
+          outAmount: order.outAmount,
+          realOutAmount: realOutAmount ?? order.outAmount,
+        };
+      } catch (e) {
+        console.log(`${attempt}. ❌Token swap failed:`, e);
+      }
     }
-
-    const exec = await execRes.json() as {
-      status: "Success" | "Failed";
-      signature?: string;
-      error?: string;
-      code?: number;
-    };
-
-    if (exec.status !== "Success" || !exec.signature) {
-      throw new Error(`Ultra execute error: ${exec.error || exec.code || "unknown"}`);
-    }
-
-    // we need to do this, coz Jupiter return wrong "outAmount", coz slippage
-    const realOutAmount = await this.getTokenSwapRealAmount(
-      exec.signature,
-      input.signer.publicKey.toString(),
-      input.outputMint
-    );
-
-    console.log('✅Token swap success:', {
-      signature: exec.signature,
-      inputMint: input.inputMint,
-      outputMint: input.outputMint,
-      inAmount: order.inAmount,
-      outAmount: order.outAmount,
-      realOutAmount: realOutAmount ?? order.outAmount,
-      priceImpact: order.priceImpact,
-    });
-
-    return {
-      signature: exec.signature,
-      outAmount: order.outAmount,
-      realOutAmount: realOutAmount ?? order.outAmount,
-    };
+    throw new Error("Token swap failed after max retries");
   }
 }

@@ -175,7 +175,7 @@ export default new class MeteoraClient {
           totalXAmount,
           totalYAmount,
           strategy: { strategyType: strategy, minBinId, maxBinId },
-          slippage: attempt * 2 // default slippage - 2, increase for 2 with each attempt
+          slippage: 100 // default slippage - 2, increase for 2 with each attempt (100 for tests)
         });
 
         // Send
@@ -332,7 +332,7 @@ export default new class MeteoraClient {
               signer,
               inputMint: dlmmPool.tokenX.mint.address.toString(),
               outputMint: dlmmPool.tokenY.mint.address.toString(),
-              amount: tokenXClaimedAmount.toString()
+              amount: fromBaseUnits(tokenXClaimedAmount, dlmmPool.tokenX.mint.decimals).toString()
             })
             break;
           case CLAIM_FEES_MODES.reinvest:
@@ -438,6 +438,7 @@ export default new class MeteoraClient {
   ): Promise<{ openNewPositionSignature: string, closeOldPositionSignature: string, newPositionKeypair: Keypair }> {
     let solAmount: Decimal = new Decimal(0);
     let tokenAmount: Decimal = new Decimal(0);
+    let positionIsClosed = false;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
@@ -455,6 +456,7 @@ export default new class MeteoraClient {
           positionPublicKey,
           false
         );
+        positionIsClosed = true;
 
 
         // 2. Swap
@@ -514,7 +516,7 @@ export default new class MeteoraClient {
         await sleep(1000);
       }
     }
-    throw new Error(`Unsuccessful rebalance position after ${attempts} attempts`);
+    throw new Error(`Unsuccessful rebalance position after ${attempts} attempts.${positionIsClosed ? ' Position was closed' : ''}`);
   }
 
   async positionIsInRange(poolAddress: string, positionPublicKey: string): Promise<boolean> {

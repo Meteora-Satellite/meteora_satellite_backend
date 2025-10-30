@@ -79,6 +79,11 @@ export default class TriggerEngine {
         if (!shouldClose) {
           if (position.rebalanceConfig == null) return;
 
+          const stopRebalanceMinimumPrice = position.rebalanceConfig.stopRebalanceMinimumPrice;
+          const stopRebalanceMaximumPrice = position.rebalanceConfig.stopRebalanceMaximumPrice;
+          if (stopRebalanceMinimumPrice && stopRebalanceMinimumPrice > tokensPerSOL) return;
+          if (stopRebalanceMaximumPrice && stopRebalanceMaximumPrice < tokensPerSOL) return;
+
           state.isaAggregating = true;
           state.lastTriggerMs = now;
 
@@ -186,9 +191,17 @@ export default class TriggerEngine {
           console.error(`Close failed for position=${positionId}:`, err);
           state.isaAggregating = false;
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error aggregation position ${positionId} in "onPoolPrice":`, error);
-        state.isaAggregating = false;
+        if (error.message.includes('Position was closed')) { // TODO update this to better solution
+          // TODO send notification about this to user?
+          await PositionService.closePosition(position.userId, positionId); // close position in DB
+          const positionsForPool = await PositionService.getAllActivePositionsForPool(poolId);
+          if (positionsForPool.length == 0) await PoolListener.unsubscribePool(poolId);
+          runtimeByPosId.delete(positionId);
+        } else {
+          state.isaAggregating = false;
+        }
       }
     }
   }

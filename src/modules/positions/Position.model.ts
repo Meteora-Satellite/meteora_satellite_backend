@@ -116,7 +116,7 @@ const FeesSchema = new Schema<IPosition['feesConfig']>(
         return this?.mode === 'reinvest';
       },
     },
-    lastClaimedAt: { type: Date, default: null },
+    lastClaimedAt: { type: Date, default: new Date() },
   },
   { _id: false }
 );
