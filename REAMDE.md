@@ -17,3 +17,5 @@ npm install
 ```sh
 npm run dev
 ```
+
+**`Frontend repo: https://github.com/Meteora-Satellite/meteora_satellite_frontend `**
