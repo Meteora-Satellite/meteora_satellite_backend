@@ -18,6 +18,7 @@ import {
   toBaseUnits
 } from "./utils";
 import { env } from "@config";
+import { WSOL_MINT } from "@common/constants";
 
 export default class SolanaMethods {
   static async getWalletBalances(address: string, onlySol: boolean = false): Promise<{ solana: string; tokens: Record<string, string> }> {
@@ -63,7 +64,7 @@ export default class SolanaMethods {
       const meta = tx.meta;
 
       // --- SOL branch ---
-      if (mint === "SOL") {
+      if (mint === WSOL_MINT.toString()) {
         const msg = tx.transaction.message as any;
         const keys: string[] = (msg.accountKeys ?? msg.staticAccountKeys).map((k: any) =>
           (k.pubkey ? k.pubkey : k).toBase58()
@@ -93,7 +94,7 @@ export default class SolanaMethods {
       const post = sum(meta.postTokenBalances ?? []);
 
       const delta = post - pre; // raw units
-      return delta.toString();
+      return delta > 0 ? delta.toString() : null;
     } catch (e) {
       console.log('Error getting token swap real amount', e);
       return null;
