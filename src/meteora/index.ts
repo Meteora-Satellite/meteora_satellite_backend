@@ -83,7 +83,7 @@ export default new class MeteoraClient {
     strategyType: string,
     solValue: Decimal,
     tokenValue: Decimal = Decimal(0),  // set this to "false" after swap and don't swap in case tokens is already swapped
-    totalRangeInterval = 10,              // later each user will set it for himself this value
+    totalRangeInterval = 30,              // later each user will set it for himself this value
     maxRetries = 5,
     swapPortion = 0.5,                    // 0..1: fraction of SOL to swap into token side (default 50%)
   ): Promise<{ signature: string; positionKeypair: Keypair }> {

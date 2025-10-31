@@ -125,8 +125,8 @@ export default new class JitoClient {
       const json = await this.rpc<{ result: string }>("/api/v1/transactions", body);
       const jitoTxSignature = json.result;
 
-      while (true) {
-        await sleep(2000);
+      while (true) { // TODO move this to a common "confirm transaction" method
+        await sleep(500);
         const jitoTxSignatureStatus = await SolanaConnection.getSignatureStatus(jitoTxSignature);
 
         if (jitoTxSignatureStatus.value?.err) {

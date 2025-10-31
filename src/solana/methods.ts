@@ -19,6 +19,7 @@ import {
 } from "./utils";
 import { env } from "@config";
 import { WSOL_MINT } from "@common/constants";
+import { sleep } from "@common/utils";
 
 export default class SolanaMethods {
   static async getWalletBalances(address: string, onlySol: boolean = false): Promise<{ solana: string; tokens: Record<string, string> }> {
@@ -185,6 +186,23 @@ export default class SolanaMethods {
 
         if (exec.status !== "Success" || !exec.signature) {
           throw new Error(`Ultra execute error: ${exec.error || exec.code || "unknown"}`);
+        }
+
+        const jupiterTxSignature = exec.signature;
+        while (true) { // TODO move this to a common "confirm transaction" method
+          await sleep(500);
+          const jupiterTxSignatureStatus = await SolanaConnection.getSignatureStatus(jupiterTxSignature);
+
+          if (jupiterTxSignatureStatus.value?.err) {
+            throw new Error(`Jupiter tx signature - ${jupiterTxSignature} status error: ${jupiterTxSignatureStatus.value.err}`);
+          }
+
+          if (jupiterTxSignatureStatus.value?.confirmationStatus == 'confirmed') {
+            if (jupiterTxSignatureStatus.value.confirmations && jupiterTxSignatureStatus.value.confirmations > 10) {
+              console.log('✅Jupiter swap tx confirmed:', jupiterTxSignature);
+              break;
+            }
+          }
         }
 
         // we need to do this, coz Jupiter return wrong "outAmount", coz slippage
